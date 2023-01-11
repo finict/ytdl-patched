@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 from typing import Iterable, List, Optional
 
 from .version import __version__
+from .utils import traverse_obj
 
 
 def noop(*a, **b):
@@ -83,29 +84,18 @@ def parse_comments_nnxml(f: str, fontsize: float, report_warning):
 
 
 def parse_comments_nnjson(f: str, fontsize: float, report_warning):
-    for comment_dom in json.loads(f):
-        comment = None
-
-        if 'chat' in comment_dom:
-            comment = comment_dom['chat']
-        elif 'content' in comment_dom:
-            comment = comment_dom
-        else:
-            continue
-
-        try:
-            if 'deleted' in comment:
+    for thread in traverse_obj(json.loads(f), ('data', 'threads')):
+        for comment in thread['comments']:
+            try:
+                c = comment['body']
+                if c.startswith('/'):
+                    continue  # ignore advanced comments
+                    
+                pos, color, size = process_command(comment.get('commands'), fontsize)
+                yield Comment(max(comment.get('vposMs'), 0) * 0.01, comment.get('postedAt'), comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
+            except (AssertionError, AttributeError, IndexError, TypeError, ValueError, KeyError) as e:
+                report_warning('Invalid comment: %s %s' % (e, comment and json.dumps(comment)))
                 continue
-
-            c = comment['content']
-            if c.startswith('/'):
-                continue  # ignore advanced comments
-
-            pos, color, size = process_command(comment.get('mail'), fontsize)
-            yield Comment(max(comment['vpos'], 0) * 0.01, comment['date'], comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
-        except (AssertionError, AttributeError, IndexError, TypeError, ValueError, KeyError) as e:
-            report_warning('Invalid comment: %s %s' % (e, comment and json.dumps(comment)))
-            continue
 
 
 def _subelem(parent, tag, text: str = None, **extra: dict):
