@@ -92,7 +92,7 @@ def parse_comments_nnjson(f: str, fontsize: float, report_warning):
                     continue  # ignore advanced comments
                     
                 pos, color, size = process_command(comment.get('commands'), fontsize)
-                yield Comment(max(comment.get('vposMs'), 0) * 0.01, comment.get('postedAt'), comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
+                yield Comment(max(comment.get('vposMs'), 0) * 0.001, comment.get('postedAt'), comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
             except (AssertionError, AttributeError, IndexError, TypeError, ValueError, KeyError) as e:
                 report_warning('Invalid comment: %s %s' % (e, comment and json.dumps(comment)))
                 continue
