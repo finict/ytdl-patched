@@ -510,11 +510,20 @@ class NiconicoIE(NiconicoBaseIE):
         }
 
     def _get_subtitles(self, video_id, api_data, session_api_data):
+        #modern
+        thread_key = traverse_obj(api_data, ('comment', 'nvComment', 'threadKey'))
+        server = traverse_obj(api_data, ('comment', 'nvComment', 'server'))
+        params = traverse_obj(api_data, ('comment', 'nvComment', 'params'))
+        raw_danmaku = self._extract_all_comments(video_id, thread_key, server, params)
+
+        #legacy
         comment_user_key = traverse_obj(api_data, ('comment', 'keys', 'userKey'))
         user_id_str = session_api_data.get('serviceUserId')
 
         thread_ids = traverse_obj(api_data, ('comment', 'threads', lambda _, v: v['isActive']))
-        raw_danmaku = self._extract_all_comments(video_id, thread_ids, user_id_str, comment_user_key)
+        raw_danmaku = self._extract_all_comments_legacy(video_id, thread_ids, user_id_str, comment_user_key)
+
+
         if not raw_danmaku:
             self.report_warning(f'Failed to get comments. {bug_reports_message()}')
             return
@@ -537,7 +546,7 @@ class NiconicoIE(NiconicoBaseIE):
             }],
         }
 
-    def _extract_all_comments(self, video_id, threads, user_id, user_key):
+    def _extract_all_comments_legacy(self, video_id, threads, user_id, user_key):
         auth_data = {
             'user_id': user_id,
             'userkey': user_key,
@@ -592,6 +601,24 @@ class NiconicoIE(NiconicoBaseIE):
                 note='Downloading comments', errnote=f'Failed to access endpoint {api_url}')
             if comments:
                 return comments
+
+    def _extract_all_comments(self, video_id, thread_key, server, params):
+        api_url = server + '/v1/threads'
+        post_data = {'params': params}
+        post_data.update({'additionals': {}})
+        post_data.update({'threadKey': thread_key})
+
+        comments = self._download_json(
+                api_url, video_id,data=json.dumps(post_data).encode(), fatal=False,
+                query={'_frontendId': 70},
+                headers={
+                    'Referer': 'https://www.nicovideo.jp/watch/%s' % video_id,
+                    'Origin': 'https://www.nicovideo.jp',
+                    'Content-Type': 'application/json',
+                },
+                note='Downloading comments', errnote=f'Failed to access endpoint {api_url}')
+        if comments:
+            return comments
 
 
 class NiconicoPlaylistBaseIE(NiconicoBaseIE):
