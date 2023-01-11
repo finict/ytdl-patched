@@ -110,21 +110,6 @@ def convert_niconico_json_to_xml(data: str) -> str:
     # https://github.com/Hayao-H/Niconicome/blob/master/Niconicome/Models/Domain/Niconico/Net/Xml/Comment/Comment.cs
     packet = ET.Element("packet")
     for item in json.loads(data):
-        for thread in item.get('threads'):
-            for comment in thread.get('comments'):
-                _subelem(
-                packet, "chat",
-                no=comment.get('no'),
-                vpos=comment.get('vposMs'),
-                text=comment.get('body'),
-                mail=comment.get('commands'),
-                user_id=comment.get('userId'),
-                premium=comment.get('isPremium'),
-                date=comment.get('postedAt'),
-                #thread=comment.get('thread') or '',
-                anonymity=comment.get('anonymity') or 0,
-            )
-        '''
         if 'chat' in item or 'content' in item:
             comment = item.get('chat') or item
             if 'deleted' in comment:
@@ -152,7 +137,6 @@ def convert_niconico_json_to_xml(data: str) -> str:
                 ticket=thread.get('ticket') or '',
                 revision=thread.get('revision') or 0,
             )
-        '''
 
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(packet, encoding='utf-8').decode('utf-8')
 
