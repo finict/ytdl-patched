@@ -50,21 +50,19 @@ Comment = collections.namedtuple(
         'timeline', 'timestamp', 'no', 'comment', 'pos', 'color', 'size', 'height', 'width'])
 
 
-def process_mailstyle(mail: Optional[str], fontsize):
+def process_command(commands: List[str], fontsize):
     pos, color, size = 0, 0xffffff, fontsize
-    if not mail:
-        return pos, color, size
-    for mailstyle in mail.split():
-        if mailstyle == 'ue':
+    for command in commands:
+        if command == 'ue':
             pos = 1
-        elif mailstyle == 'shita':
+        elif command == 'shita':
             pos = 2
-        elif mailstyle == 'big':
+        elif command == 'big':
             size = fontsize * 1.44
-        elif mailstyle == 'small':
+        elif command == 'small':
             size = fontsize * 0.64
-        elif mailstyle in NICONICO_COLOR_MAPPINGS:
-            color = NICONICO_COLOR_MAPPINGS[mailstyle]
+        elif command in NICONICO_COLOR_MAPPINGS:
+            color = NICONICO_COLOR_MAPPINGS[command]
     return pos, color, size
 
 
@@ -122,6 +120,21 @@ def convert_niconico_json_to_xml(data: str) -> str:
     # https://github.com/Hayao-H/Niconicome/blob/master/Niconicome/Models/Domain/Niconico/Net/Xml/Comment/Comment.cs
     packet = ET.Element("packet")
     for item in json.loads(data):
+        for thread in item.get('threads'):
+            for comment in thread.get('comments'):
+                _subelem(
+                packet, "chat",
+                no=comment.get('no'),
+                vpos=comment.get('vposMs'),
+                text=comment.get('body'),
+                mail=comment.get('commands'),
+                user_id=comment.get('userId'),
+                premium=comment.get('isPremium'),
+                date=comment.get('postedAt'),
+                #thread=comment.get('thread') or '',
+                anonymity=comment.get('anonymity') or 0,
+            )
+        '''
         if 'chat' in item or 'content' in item:
             comment = item.get('chat') or item
             if 'deleted' in comment:
@@ -149,6 +162,7 @@ def convert_niconico_json_to_xml(data: str) -> str:
                 ticket=thread.get('ticket') or '',
                 revision=thread.get('revision') or 0,
             )
+        '''
 
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(packet, encoding='utf-8').decode('utf-8')
 
