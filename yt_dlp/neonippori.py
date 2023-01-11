@@ -75,7 +75,7 @@ def parse_comments_nnxml(f: str, fontsize: float, report_warning):
             c = str(comment.childNodes[0].wholeText)
             if c.startswith('/'):
                 continue  # ignore advanced comments
-            pos, color, size = process_mailstyle(comment.getAttribute('mail'), fontsize)
+            pos, color, size = process_command(comment.getAttribute('mail'), fontsize)
             yield Comment(max(int(comment.getAttribute('vpos')), 0) * 0.01, int(comment.getAttribute('date')), int(comment.getAttribute('no')), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
         except (AssertionError, AttributeError, IndexError, TypeError, ValueError) as e:
             report_warning('Invalid comment: %s %s' % (e, comment.toxml()))
@@ -101,7 +101,7 @@ def parse_comments_nnjson(f: str, fontsize: float, report_warning):
             if c.startswith('/'):
                 continue  # ignore advanced comments
 
-            pos, color, size = process_mailstyle(comment.get('mail'), fontsize)
+            pos, color, size = process_command(comment.get('mail'), fontsize)
             yield Comment(max(comment['vpos'], 0) * 0.01, comment['date'], comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, maximum_line_length(c) * size)
         except (AssertionError, AttributeError, IndexError, TypeError, ValueError, KeyError) as e:
             report_warning('Invalid comment: %s %s' % (e, comment and json.dumps(comment)))
