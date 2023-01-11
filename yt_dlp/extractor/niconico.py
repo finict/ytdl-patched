@@ -213,9 +213,6 @@ class NiconicoIE(NiconicoBaseIE):
 
     _VALID_URL = r'(?:https?://(?:(?:www\.|secure\.|sp\.)?nicovideo\.jp/watch|nico\.ms)/|nico(?:nico|video)?:)(?P<id>(?:[a-z]{2})?[0-9]+)'
     _NETRC_MACHINE = 'niconico'
-    _COMMENT_API_ENDPOINTS = (
-        'https://nvcomment.nicovideo.jp/legacy/api.json',
-        'https://nmsg.nicovideo.jp/api.json',)
 
     def _perform_login(self, username, password):
         login_ok = True
@@ -510,19 +507,10 @@ class NiconicoIE(NiconicoBaseIE):
         }
 
     def _get_subtitles(self, video_id, api_data, session_api_data):
-        #modern
         thread_key = traverse_obj(api_data, ('comment', 'nvComment', 'threadKey'))
         server = traverse_obj(api_data, ('comment', 'nvComment', 'server'))
         params = traverse_obj(api_data, ('comment', 'nvComment', 'params'))
         raw_danmaku = self._extract_all_comments(video_id, thread_key, server, params)
-
-        #legacy
-        comment_user_key = traverse_obj(api_data, ('comment', 'keys', 'userKey'))
-        user_id_str = session_api_data.get('serviceUserId')
-
-        thread_ids = traverse_obj(api_data, ('comment', 'threads', lambda _, v: v['isActive']))
-        raw_danmaku = self._extract_all_comments_legacy(video_id, thread_ids, user_id_str, comment_user_key)
-
 
         if not raw_danmaku:
             self.report_warning(f'Failed to get comments. {bug_reports_message()}')
@@ -545,62 +533,6 @@ class NiconicoIE(NiconicoBaseIE):
                 'data': danmaku
             }],
         }
-
-    def _extract_all_comments_legacy(self, video_id, threads, user_id, user_key):
-        auth_data = {
-            'user_id': user_id,
-            'userkey': user_key,
-        } if user_id and user_key else {'user_id': ''}
-
-        # Request Start
-        post_data = [{'ping': {'content': 'rs:0'}}]
-        for i, thread in enumerate(threads):
-            thread_id = thread['id']
-            thread_fork = thread['fork']
-            # Post Start (2N)
-            post_data.append({'ping': {'content': f'ps:{i * 2}'}})
-            post_data.append({'thread': {
-                'fork': thread_fork,
-                'language': 0,
-                'nicoru': 3,
-                'scores': 1,
-                'thread': thread_id,
-                'version': '20090904',
-                'with_global': 1,
-                **auth_data,
-            }})
-            # Post Final (2N)
-            post_data.append({'ping': {'content': f'pf:{i * 2}'}})
-
-            # Post Start (2N+1)
-            post_data.append({'ping': {'content': f'ps:{i * 2 + 1}'}})
-            post_data.append({'thread_leaves': {
-                # format is '<bottom of minute range>-<top of minute range>:<comments per minute>,<total last comments'
-                # unfortunately NND limits (deletes?) comment returns this way, so you're only able to grab the last 1000 per language
-                'content': '0-999999:999999,999999,nicoru:999999',
-                'fork': thread_fork,
-                'language': 0,
-                'nicoru': 3,
-                'scores': 1,
-                'thread': thread_id,
-                **auth_data,
-            }})
-            # Post Final (2N+1)
-            post_data.append({'ping': {'content': f'pf:{i * 2 + 1}'}})
-        # Request Final
-        post_data.append({'ping': {'content': 'rf:0'}})
-
-        for api_url in self._COMMENT_API_ENDPOINTS:
-            comments = self._download_json(
-                api_url, video_id, data=json.dumps(post_data).encode(), fatal=False,
-                headers={
-                    'Referer': 'https://www.nicovideo.jp/watch/%s' % video_id,
-                    'Origin': 'https://www.nicovideo.jp',
-                    'Content-Type': 'text/plain;charset=UTF-8',
-                },
-                note='Downloading comments', errnote=f'Failed to access endpoint {api_url}')
-            if comments:
-                return comments
 
     def _extract_all_comments(self, video_id, thread_key, server, params):
         api_url = server + '/v1/threads'
